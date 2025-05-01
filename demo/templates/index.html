@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/common.js"></script>
+</head>
+<body>
+    <h1>Welcome to my website</h1>
+    获取后端的数据为：
+    {{.massage}}
+    <p>Here is some text about me</p>
+
+<form action="/user/form" method="POST">
+    <p> username: <input type="text" name="username"></p>
+    <p> password: <input type="password" name="password"></p>
+    <p> <input type="submit" value="Submit">提交</p>
+</form>
+
+</body>
+</html>
