@@ -14,9 +14,12 @@ import (
 
 // @title RealWorld API
 // @version 1.0
-// @description RealWorld 项目后端 API 文档
+// @description RealWorld 后端 API 文档
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 // @host localhost:8080
-// @openapi 3.0.0
+// @BasePath /api
 func main() {
 	db, err := config.InitDB()
 	if err != nil {
@@ -32,6 +35,7 @@ func main() {
 	// 注册路由
 	route.SetupRoutes(router, userService)
 	route.LoginRoutes(router, userService)
+	route.GetCurrentUserRoutes(router, userService)
 
 	if err := router.Run(":8080"); err != nil {
 		log.Fatalf("服务器启动失败：%v", err)

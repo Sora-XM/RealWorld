@@ -6,7 +6,7 @@ import (
 	"goDemo/service"
 )
 
-// SetupRoutes  注册路由
+// SetupRoutes  注册
 func SetupRoutes(router *gin.Engine, UserService *service.UserService) {
 	userController := &controller.UserController{UserService: UserService}
 	api := router.Group("/api")
@@ -15,11 +15,20 @@ func SetupRoutes(router *gin.Engine, UserService *service.UserService) {
 	}
 }
 
-// LoginRoutes 登录路由
+// LoginRoutes 登录
 func LoginRoutes(router *gin.Engine, UserService *service.UserService) {
 	userController := &controller.UserController{UserService: UserService}
 	api := router.Group("/api")
 	{
 		api.POST("/users/login", userController.LoginUser)
+	}
+}
+
+// GetCurrentUserRoutes 获取当前用户
+func GetCurrentUserRoutes(router *gin.Engine, UserService *service.UserService) {
+	userController := &controller.UserController{UserService: UserService}
+	api := router.Group("/api")
+	{
+		api.GET("/user", userController.GetCurrentUser)
 	}
 }

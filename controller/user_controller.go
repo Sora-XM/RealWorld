@@ -5,6 +5,7 @@ import (
 	"goDemo/models"
 	"goDemo/service"
 	"net/http"
+	"strings"
 )
 
 type UserController struct {
@@ -72,6 +73,54 @@ func (c *UserController) LoginUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
 		return
 	}
+	response := models.UserResponse{
+		User: struct {
+			Email    string `json:"email"`
+			Token    string `json:"token"`
+			Username string `json:"username"`
+			Bio      string `json:"bio"`
+			Image    string `json:"image"`
+		}{
+			Email:    user.Email,
+			Token:    token,
+			Username: user.Username,
+			Bio:      user.Bio,
+			Image:    user.Image,
+		},
+	}
+	ctx.JSON(http.StatusOK, response)
+}
+
+// GetCurrentUser godoc
+// @Summary 获取当前用户信息
+// @Description 根据token获取当前用户信息
+// @Tags users
+// @Accept  json
+// @Produce  json
+// @Security BearerAuth
+// @Success 200 {object} models.UserModel "获取成功，返回当前用户信息"
+// @Failure 401 {object} map[string]string "未授权"
+// @Failure 500 {object} map[string]string "服务器内部错误"
+// @Router /api/user [get]
+func (c *UserController) GetCurrentUser(ctx *gin.Context) {
+	//从请求头中获取token
+	authHeader := ctx.GetHeader("Authorization")
+	if authHeader == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"缺少 Authorization 请求头"}}})
+		return
+	}
+	splitToken := strings.Split(authHeader, " ")
+	if len(splitToken) != 2 || strings.ToLower(splitToken[0]) != "bearer" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"无效的 Authorization 请求头形式"}}})
+		return
+	}
+	token := splitToken[1]
+	user, err := c.UserService.GetUserByToken(token)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{"无效的Token"}}})
+		return
+	}
+	// 构建响应
 	response := models.UserResponse{
 		User: struct {
 			Email    string `json:"email"`
