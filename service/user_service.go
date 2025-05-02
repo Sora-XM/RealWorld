@@ -50,7 +50,6 @@ func (s *UserService) VerifyUser(email string, password string) (*models.UserMod
 	//	}
 	//	return nil, err // 其他 bcrypt 错误
 	//}
-
 	return &user, nil
 }
 
@@ -65,32 +64,15 @@ func (s *UserService) GenerateToken(user *models.UserModel) (string, error) {
 
 // GetUserByToken 根据token获取用户信息
 func (s *UserService) GetUserByToken(token string) (*models.UserModel, error) {
-	// 解析 JWT 令牌
-	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(s.SecretKey), nil
-	})
+
+	userID, err := s.parseToken(token)
 	if err != nil {
 		return nil, err
 	}
 
-	// 检查令牌是否有效
-	claims, ok := parsedToken.Claims.(jwt.MapClaims)
-	if !ok || !parsedToken.Valid {
-		return nil, errors.New("invalid token")
-	}
-
-	// 从令牌中获取用户 ID
-	userID, ok := claims["user_id"].(float64)
-	if !ok {
-		return nil, errors.New("invalid user ID in token")
-	}
-
 	// 根据用户 ID 从数据库中查询用户信息
 	var user models.UserModel
-	err = s.DB.First(&user, uint(userID)).Error
+	err = s.DB.First(&user, userID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -99,4 +81,68 @@ func (s *UserService) GetUserByToken(token string) (*models.UserModel, error) {
 	}
 
 	return &user, nil
+}
+
+func (s *UserService) UpdateUser(token string, updateRequest *models.UserUpdateRequest) (*models.UserModel, error) {
+	// 解析JWT令牌
+	userID, err := s.parseToken(token)
+	if err != nil {
+		return nil, err
+	}
+	// 根据用户ID查询用户
+	var user models.UserModel
+	err = s.DB.First(&user, userID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+	// 更新用户信息
+	if updateRequest.User.Email != nil {
+		user.Email = *updateRequest.User.Email
+	}
+	if updateRequest.User.Username != nil {
+		user.Username = *updateRequest.User.Username
+	}
+	if updateRequest.User.Password != nil {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*updateRequest.User.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, err
+		}
+		user.Password = string(hashedPassword)
+	}
+	if updateRequest.User.Bio != nil {
+		user.Bio = *updateRequest.User.Bio
+	}
+	if updateRequest.User.Image != nil {
+		user.Image = *updateRequest.User.Image
+	}
+	err = s.DB.Save(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// parseToken 解析JWT token获取其中UserID
+func (s *UserService) parseToken(token string) (uint, error) {
+	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(s.SecretKey), nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok || !parsedToken.Valid {
+		return 0, errors.New("invalid token")
+	}
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return 0, errors.New("invalid user ID in token")
+	}
+	return uint(userID), nil
 }

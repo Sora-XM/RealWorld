@@ -32,3 +32,30 @@ func GetCurrentUserRoutes(router *gin.Engine, UserService *service.UserService) 
 		api.GET("/user", userController.GetCurrentUser)
 	}
 }
+
+// UpdateUserRoutes 更新用户
+func UpdateUserRoutes(router *gin.Engine, UserService *service.UserService) {
+	userController := &controller.UserController{UserService: UserService}
+	api := router.Group("/api")
+	{
+		api.PUT("/user", userController.UpdateUser)
+	}
+}
+
+// GetProfileRoutes 获取用户资料
+func GetProfileRoutes(router *gin.Engine, ProfileService *service.ProfileService, UserService *service.UserService) {
+	profileController := &controller.ProfileController{ProfileService: ProfileService, UserService: UserService}
+	api := router.Group("/api")
+	{
+		api.GET("/profiles/:username", profileController.GetProfile)
+	}
+}
+
+// FollowUserRoutes 关注用户
+func FollowUserRoutes(router *gin.Engine, ProfileService *service.ProfileService, UserService *service.UserService) {
+	profileController := &controller.ProfileController{ProfileService: ProfileService, UserService: UserService}
+	api := router.Group("/api")
+	{
+		api.POST("/follow", profileController.FollowUser)
+	}
+}

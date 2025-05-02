@@ -31,3 +31,13 @@ type UserResponse struct {
 		Image    string `json:"image"`
 	} `json:"user"`
 }
+
+type UserUpdateRequest struct {
+	User struct {
+		Email    *string `json:"email,omitempty"`
+		Username *string `json:"username,omitempty"`
+		Password *string `json:"password,omitempty"`
+		Bio      *string `json:"bio,omitempty"`
+		Image    *string `json:"image,omitempty"`
+	} `json:"user"`
+}

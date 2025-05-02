@@ -27,6 +27,7 @@ func main() {
 	}
 	// 创建UserService实例，传入数据库连接
 	userService := &service.UserService{DB: db}
+	profileService := &service.ProfileService{DB: db}
 
 	router := gin.Default()
 	// 注册 Swagger 路由
@@ -36,6 +37,9 @@ func main() {
 	route.SetupRoutes(router, userService)
 	route.LoginRoutes(router, userService)
 	route.GetCurrentUserRoutes(router, userService)
+	route.UpdateUserRoutes(router, userService)
+	route.GetProfileRoutes(router, profileService, userService)
+	route.FollowUserRoutes(router, profileService, userService)
 
 	if err := router.Run(":8080"); err != nil {
 		log.Fatalf("服务器启动失败：%v", err)

@@ -138,3 +138,78 @@ func (c *UserController) GetCurrentUser(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, response)
 }
+
+// UpdateUser godoc
+// @Summary 更新用户信息
+// @Description 根据token更新当前用户信息
+// @Tags users
+// @Accept  json
+// @Produce  json
+// @Security BearerAuth
+// @Param   user body models.UserModel true "用户更新信息"
+// @Success 200 {object} models.UserModel "更新成功，返回更新后的用户信息"
+// @Failure 400 {object} map[string]string "请求参数错误"
+// @Failure 401 {object} map[string]string "未授权"
+// @Failure 500 {object} map[string]string "服务器内部错误"
+// @Router /api/user [put]
+func (c *UserController) UpdateUser(ctx *gin.Context) {
+	// 从请求头中获取 Authorization 字段
+	authHeader := ctx.GetHeader("Authorization")
+	if authHeader == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"缺少 Authorization 头"}}})
+		return
+	}
+
+	// 提取 token
+	splitToken := strings.Split(authHeader, " ")
+	if len(splitToken) != 2 || strings.ToLower(splitToken[0]) != "bearer" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"无效的 Authorization 头格式"}}})
+		return
+	}
+	token := splitToken[1]
+
+	// 解析请求体
+	var updateRequest models.UserUpdateRequest
+	if err := ctx.ShouldBindJSON(&updateRequest); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		return
+	}
+
+	// 调用服务层更新用户信息
+	updatedUser, err := c.UserService.UpdateUser(token, &updateRequest)
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid token") || strings.Contains(err.Error(), "user not found") {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		}
+		return
+	}
+
+	// 生成新的 token
+	newToken, err := c.UserService.GenerateToken(updatedUser)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		return
+	}
+
+	// 构建响应
+	response := models.UserResponse{
+		User: struct {
+			Email    string `json:"email"`
+			Token    string `json:"token"`
+			Username string `json:"username"`
+			Bio      string `json:"bio"`
+			Image    string `json:"image"`
+		}{
+			Email:    updatedUser.Email,
+			Token:    newToken,
+			Username: updatedUser.Username,
+			Bio:      updatedUser.Bio,
+			Image:    updatedUser.Image,
+		},
+	}
+
+	// 返回响应
+	ctx.JSON(http.StatusOK, response)
+}
