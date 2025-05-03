@@ -4,14 +4,15 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"goDemo/service"
+	"goDemo/utils"
 	"gorm.io/gorm"
 	"net/http"
-	"strings"
 )
 
 type ProfileController struct {
 	ProfileService *service.ProfileService
 	UserService    *service.UserService
+	Auth           *utils.Auth
 }
 
 // GetProfile godoc
@@ -29,20 +30,18 @@ type ProfileController struct {
 // @Router /api/profiles/{username} [get]
 func (c *ProfileController) GetProfile(ctx *gin.Context) {
 	username := ctx.Param("username")
-	var currentUserID uint
-	//获取认证信息，如果有token则验证token
-	authHeader := ctx.GetHeader("Authorization")
-	if authHeader == "" {
-		splitToken := strings.Split(authHeader, " ")
-		if len(splitToken) == 2 && strings.ToLower(splitToken[0]) == "bearer" {
-			token := splitToken[1]
-			user, err := c.UserService.GetUserByToken(token)
-			if err != nil {
-				currentUserID = user.ID
-			}
+	currentUserID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		if err.Error() == "missing Authorization header" {
+			// 没有 token 也可以继续获取资料，只是 currentUserID 为 0
+			currentUserID = 0
+			err = nil
+		} else {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+			return
 		}
 	}
-	//调用服务层获取用户资料
+	// 调用服务层获取用户资料
 	profile, err := c.ProfileService.GetProfile(currentUserID, username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -71,27 +70,17 @@ func (c *ProfileController) GetProfile(ctx *gin.Context) {
 func (c *ProfileController) FollowUser(ctx *gin.Context) {
 	// 从路径参数获取要关注的用户名
 	username := ctx.Param("username")
-	// 从请求头获取 Authorization 字段
-	authHeader := ctx.GetHeader("Authorization")
-	if authHeader == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"缺少 Authorization 头"}}})
-		return
-	}
-	// 提取 token
-	splitToken := strings.Split(authHeader, " ")
-	if len(splitToken) != 2 || strings.ToLower(splitToken[0]) != "bearer" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"无效的 Authorization 头格式"}}})
-		return
-	}
-	token := splitToken[1]
-	// 通过 Token 获取当前用户信息
-	user, err := c.UserService.GetUserByToken(token)
+	currentUserID, err := c.Auth.ParseToken(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"无效的 token"}}})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		return
+	}
+	if currentUserID == 0 {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权，缺少或无效的 token"}}})
 		return
 	}
 	// 调用服务层关注用户
-	profile, err := c.ProfileService.FollowUser(user.ID, username)
+	profile, err := c.ProfileService.FollowUser(currentUserID, username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusNotFound, gin.H{"errors": gin.H{"body": []string{"用户不存在"}}})

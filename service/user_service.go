@@ -3,17 +3,17 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/gin-gonic/gin"
 	"goDemo/models"
+	"goDemo/utils"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"strings"
-	"time"
 )
 
 type UserService struct {
-	DB        *gorm.DB
-	SecretKey string
+	DB   *gorm.DB
+	Auth *utils.Auth
 }
 
 // CreateUser 注册用户
@@ -53,19 +53,9 @@ func (s *UserService) VerifyUser(email string, password string) (*models.UserMod
 	return &user, nil
 }
 
-// GenerateToken 生成JWT token
-func (s *UserService) GenerateToken(user *models.UserModel) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(),
-	})
-	return token.SignedString([]byte(s.SecretKey))
-}
-
 // GetUserByToken 根据token获取用户信息
-func (s *UserService) GetUserByToken(token string) (*models.UserModel, error) {
-
-	userID, err := s.parseToken(token)
+func (s *UserService) GetUserByToken(ctx *gin.Context) (*models.UserModel, error) {
+	userID, err := s.Auth.ParseToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -79,13 +69,12 @@ func (s *UserService) GetUserByToken(token string) (*models.UserModel, error) {
 		}
 		return nil, err
 	}
-
 	return &user, nil
 }
 
-func (s *UserService) UpdateUser(token string, updateRequest *models.UserUpdateRequest) (*models.UserModel, error) {
+func (s *UserService) UpdateUser(ctx *gin.Context, updateRequest *models.UserUpdateRequest) (*models.UserModel, error) {
 	// 解析JWT令牌
-	userID, err := s.parseToken(token)
+	userID, err := s.Auth.ParseToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -123,26 +112,4 @@ func (s *UserService) UpdateUser(token string, updateRequest *models.UserUpdateR
 		return nil, err
 	}
 	return &user, nil
-}
-
-// parseToken 解析JWT token获取其中UserID
-func (s *UserService) parseToken(token string) (uint, error) {
-	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(s.SecretKey), nil
-	})
-	if err != nil {
-		return 0, err
-	}
-	claims, ok := parsedToken.Claims.(jwt.MapClaims)
-	if !ok || !parsedToken.Valid {
-		return 0, errors.New("invalid token")
-	}
-	userID, ok := claims["user_id"].(float64)
-	if !ok {
-		return 0, errors.New("invalid user ID in token")
-	}
-	return uint(userID), nil
 }

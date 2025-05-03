@@ -4,12 +4,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"goDemo/models"
 	"goDemo/service"
+	"goDemo/utils"
 	"net/http"
 	"strings"
 )
 
 type UserController struct {
 	UserService *service.UserService
+	Auth        *utils.Auth
 }
 
 // RegisterUser godoc
@@ -68,7 +70,7 @@ func (c *UserController) LoginUser(ctx *gin.Context) {
 		return
 	}
 
-	token, err := c.UserService.GenerateToken(user)
+	token, err := c.Auth.GenerateToken(user)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
 		return
@@ -103,21 +105,21 @@ func (c *UserController) LoginUser(ctx *gin.Context) {
 // @Failure 500 {object} map[string]string "服务器内部错误"
 // @Router /api/user [get]
 func (c *UserController) GetCurrentUser(ctx *gin.Context) {
-	//从请求头中获取token
-	authHeader := ctx.GetHeader("Authorization")
-	if authHeader == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"缺少 Authorization 请求头"}}})
-		return
-	}
-	splitToken := strings.Split(authHeader, " ")
-	if len(splitToken) != 2 || strings.ToLower(splitToken[0]) != "bearer" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"无效的 Authorization 请求头形式"}}})
-		return
-	}
-	token := splitToken[1]
-	user, err := c.UserService.GetUserByToken(token)
+	user, err := c.UserService.GetUserByToken(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{"无效的Token"}}})
+		if err.Error() == "missing Authorization header" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"缺少 Authorization 请求头"}}})
+		} else if err.Error() == "invalid Authorization header format" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"无效的 Authorization 请求头形式"}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{"无效的Token"}}})
+		}
+		return
+	}
+	// 生成新的 token
+	token, err := c.Auth.GenerateToken(user)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
 		return
 	}
 	// 构建响应
@@ -153,46 +155,28 @@ func (c *UserController) GetCurrentUser(ctx *gin.Context) {
 // @Failure 500 {object} map[string]string "服务器内部错误"
 // @Router /api/user [put]
 func (c *UserController) UpdateUser(ctx *gin.Context) {
-	// 从请求头中获取 Authorization 字段
-	authHeader := ctx.GetHeader("Authorization")
-	if authHeader == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"缺少 Authorization 头"}}})
-		return
-	}
-
-	// 提取 token
-	splitToken := strings.Split(authHeader, " ")
-	if len(splitToken) != 2 || strings.ToLower(splitToken[0]) != "bearer" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"无效的 Authorization 头格式"}}})
-		return
-	}
-	token := splitToken[1]
-
 	// 解析请求体
 	var updateRequest models.UserUpdateRequest
 	if err := ctx.ShouldBindJSON(&updateRequest); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
 		return
 	}
-
 	// 调用服务层更新用户信息
-	updatedUser, err := c.UserService.UpdateUser(token, &updateRequest)
+	updatedUser, err := c.UserService.UpdateUser(ctx, &updateRequest)
 	if err != nil {
-		if strings.Contains(err.Error(), "invalid token") || strings.Contains(err.Error(), "user not found") {
+		if err.Error() == "missing Authorization header" || err.Error() == "invalid Authorization header format" || strings.Contains(err.Error(), "invalid token") || strings.Contains(err.Error(), "user not found") {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
 		} else {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
 		}
 		return
 	}
-
 	// 生成新的 token
-	newToken, err := c.UserService.GenerateToken(updatedUser)
+	newToken, err := c.Auth.GenerateToken(updatedUser)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
 		return
 	}
-
 	// 构建响应
 	response := models.UserResponse{
 		User: struct {
