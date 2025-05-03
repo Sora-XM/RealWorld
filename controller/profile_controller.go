@@ -94,3 +94,41 @@ func (c *ProfileController) FollowUser(ctx *gin.Context) {
 	// 返回关注后的用户资料
 	ctx.JSON(http.StatusOK, gin.H{"profile": profile})
 }
+
+// UnfollowUser godoc
+// @Summary 取消关注用户
+// @Description 取消关注指定的用户
+// @Tags profiles
+// @Accept  json
+// @Produce  json
+// @Security BearerAuth
+// @Param   username path string true "用户名"
+// @Success 200 {object} models.Profile "取消关注成功，返回用户资料"
+// @Failure 401 {object} map[string]interface{} "未授权，缺少或无效的 token"
+// @Failure 404 {object} map[string]interface{} "用户不存在"
+// @Failure 500 {object} map[string]interface{} "服务器内部错误"
+// @Router /api/profiles/{username}/follow [delete]
+func (c *ProfileController) UnfollowUser(ctx *gin.Context) {
+	username := ctx.Param("username")
+	currentUserID, err := c.Auth.ParseToken(ctx)
+	//检查token
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		return
+	}
+	if currentUserID == 0 {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权，缺少或无效的 token"}}})
+		return
+	}
+	//调用服务层取消关注用户
+	profile, err := c.ProfileService.UnfollowUser(currentUserID, username)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"errors": gin.H{"body": []string{"用户不存在"}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		}
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"profile": profile})
+}

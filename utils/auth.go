@@ -14,6 +14,12 @@ type Auth struct {
 	SecretKey string
 }
 
+func NewAuth(secretKey string) *Auth {
+	return &Auth{
+		SecretKey: secretKey,
+	}
+}
+
 // GenerateToken 生成JWT token
 func (s *Auth) GenerateToken(user *models.UserModel) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

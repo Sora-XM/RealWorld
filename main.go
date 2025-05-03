@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -10,6 +8,8 @@ import (
 	_ "goDemo/docs" // 导入生成的文档包，根据实际包名调整
 	"goDemo/route"
 	"goDemo/service"
+	"goDemo/utils"
+	"log"
 )
 
 // @title RealWorld API
@@ -25,21 +25,27 @@ func main() {
 	if err != nil {
 		log.Fatalf("数据库连接失败：%v", err)
 	}
+	auth := utils.NewAuth("DurRDDtjL2uB_Zyry4f6GHwoBgD5k7oLvC7Fj12E56E=")
 	// 创建UserService实例，传入数据库连接
-	userService := &service.UserService{DB: db}
-	profileService := &service.ProfileService{DB: db}
-
+	userService := &service.UserService{
+		DB:   db,
+		Auth: auth,
+	}
+	profileService := &service.ProfileService{
+		DB: db,
+	}
 	router := gin.Default()
 	// 注册 Swagger 路由
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// 注册路由
-	route.SetupRoutes(router, userService)
-	route.LoginRoutes(router, userService)
-	route.GetCurrentUserRoutes(router, userService)
-	route.UpdateUserRoutes(router, userService)
-	route.GetProfileRoutes(router, profileService, userService)
-	route.FollowUserRoutes(router, profileService, userService)
+	route.SetupRoutes(router, userService, auth)
+	route.LoginRoutes(router, userService, auth)
+	route.GetCurrentUserRoutes(router, userService, auth)
+	route.UpdateUserRoutes(router, userService, auth)
+	route.GetProfileRoutes(router, profileService, userService, auth)
+	route.FollowUserRoutes(router, profileService, userService, auth)
+	route.UnfollowUserRoutes(router, profileService, userService, auth)
 
 	if err := router.Run(":8080"); err != nil {
 		log.Fatalf("服务器启动失败：%v", err)

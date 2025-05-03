@@ -21,9 +21,9 @@ func (s *ProfileService) GetProfile(currentUserID uint, username string) (*model
 	//查看该用户是否被当前用户关注
 	var following bool
 	if currentUserID == 0 {
-		var followCount int64
-		s.DB.Model(&models.Follow{}).Where("follower_id = ?", user.ID).Count(&followCount)
-		following = followCount > 0
+		var follow models.Follow
+		err = s.DB.Where("follower = ? AND followed = ?", currentUserID, user.ID).First(&follow).Error
+		following = err == nil
 	}
 
 	return &models.Profile{
@@ -50,7 +50,7 @@ func (s *ProfileService) FollowUser(currentUserID uint, username string) (*model
 	}
 	//检查是否已经关注
 	var follow models.Follow
-	err = s.DB.Where("follower_id = ?", targetUser.ID).First(&follow).Error
+	err = s.DB.Where("follower = ? AND followed = ?", currentUserID, targetUser.ID).First(&follow).Error
 	if err == nil {
 		//已关注，直接返回资料
 		return &models.Profile{
@@ -77,5 +77,41 @@ func (s *ProfileService) FollowUser(currentUserID uint, username string) (*model
 		Bio:       targetUser.Bio,
 		Image:     targetUser.Image,
 		Following: true,
+	}, nil
+}
+
+func (s *ProfileService) UnfollowUser(currentUserID uint, username string) (*models.Profile, error) {
+	var targetUser models.UserModel
+	err := s.DB.Where("username = ?", username).First(&targetUser).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, gorm.ErrRecordNotFound
+		}
+		return nil, err
+	}
+	//是否已经关注
+	var follow models.Follow
+	err = s.DB.Where("follower = ? AND followed = ?", currentUserID, targetUser.ID).First(&follow).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &models.Profile{
+				Username:  targetUser.Username,
+				Bio:       targetUser.Bio,
+				Image:     targetUser.Image,
+				Following: false,
+			}, nil
+		}
+		return nil, err
+	}
+	//删除关注关系并返回资料
+	err = s.DB.Delete(&follow).Error
+	if err != nil {
+		return nil, err
+	}
+	return &models.Profile{
+		Username:  targetUser.Username,
+		Bio:       targetUser.Bio,
+		Image:     targetUser.Image,
+		Following: false,
 	}, nil
 }
