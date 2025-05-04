@@ -63,15 +63,23 @@ func (s *ArticleService) FeedArticles(userID uint, params FeedArticlesParams) ([
 
 	//先获取用户关注的作者ID
 	subQuery := s.DB.Table("follows").
-		Where("follower_id =?", userID)
+		Select("followed").
+		Where("follower = ?", userID)
 
 	//查询这些ID的文章
-	err := s.DB.Model(&models.Article{}).
-		Where("author_id =?", subQuery).
-		Count(&count).
-		Limit(params.Limit).
-		Offset(params.Offset).
-		Find(&articles).Error
+	query := s.DB.Model(&models.Article{}).
+		Where("author_id IN (?)", subQuery).
+		Where("deleted_at IS NULL")
+
+	// 分页查询文章列表
+	err := query.Count(&count).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	err = query.Limit(params.Limit).Offset(params.Offset).Find(&articles).Error
+	if err != nil {
+		return nil, 0, err
+	}
 
 	return articles, count, err
 }
@@ -122,7 +130,7 @@ func GenerateSlug(title string) string {
 		}
 	}
 	//移除多余和首尾连字符
-	for strings.Contains(slug, "-") {
+	for strings.Contains(slug, "--") {
 		slug = strings.ReplaceAll(slug, "--", "-")
 	}
 	slug = strings.Trim(slug, "-")

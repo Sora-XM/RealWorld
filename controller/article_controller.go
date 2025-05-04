@@ -20,6 +20,7 @@ type ArticleController struct {
 // @Tags articles
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param tag query string false "标签"
 // @Param author query string false "作者"
 // @Param favorited query string false "是否收藏"
@@ -52,6 +53,7 @@ func (c *ArticleController) ListArticles(ctx *gin.Context) {
 // @Tags articles
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param limit query int false "每页数量"
 // @Param offset query int false "偏移量"
 // @Success 200 {object} models.ArticleListResponse
@@ -107,6 +109,7 @@ func (c *ArticleController) GetArticle(ctx *gin.Context) {
 // @Tags articles
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param article body models.CreateArticleRequest true "文章信息"
 // @Success 201 {object} models.ArticleResponse
 // @Router /api/articles [post]
