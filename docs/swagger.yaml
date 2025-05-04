@@ -1,0 +1,553 @@
+definitions:
+  gorm.DeletedAt:
+    properties:
+      time:
+        type: string
+      valid:
+        description: Valid is true if Time is not NULL
+        type: boolean
+    type: object
+  models.Article:
+    properties:
+      author:
+        $ref: '#/definitions/models.UserModel'
+      body:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      description:
+        type: string
+      favorited:
+        type: boolean
+      favoritesCount:
+        type: integer
+      id:
+        type: integer
+      slug:
+        type: string
+      tagList:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  models.ArticleListResponse:
+    properties:
+      articles:
+        items:
+          $ref: '#/definitions/models.Article'
+        type: array
+      articlesCount:
+        type: integer
+    type: object
+  models.ArticleResponse:
+    properties:
+      article:
+        $ref: '#/definitions/models.Article'
+    type: object
+  models.CreateArticleRequest:
+    properties:
+      article:
+        properties:
+          body:
+            type: string
+          description:
+            type: string
+          tagList:
+            items:
+              type: string
+            type: array
+          title:
+            type: string
+        required:
+        - body
+        - description
+        - title
+        type: object
+    required:
+    - article
+    type: object
+  models.Profile:
+    properties:
+      bio:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      following:
+        type: boolean
+      id:
+        type: integer
+      image:
+        type: string
+      updatedAt:
+        type: string
+      username:
+        type: string
+    type: object
+  models.UpdateArticleRequest:
+    properties:
+      article:
+        properties:
+          body:
+            type: string
+          description:
+            type: string
+          title:
+            type: string
+        type: object
+    type: object
+  models.UserModel:
+    properties:
+      bio:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      email:
+        type: string
+      id:
+        type: integer
+      image:
+        type: string
+      updatedAt:
+        type: string
+      username:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: RealWorld 后端 API 文档
+  title: RealWorld API
+  version: "1.0"
+paths:
+  /api/articles:
+    get:
+      consumes:
+      - application/json
+      description: 获取文章列表
+      parameters:
+      - description: 标签
+        in: query
+        name: tag
+        type: string
+      - description: 作者
+        in: query
+        name: author
+        type: string
+      - description: 是否收藏
+        in: query
+        name: favorited
+        type: string
+      - description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ArticleListResponse'
+      security:
+      - BearerAuth: []
+      summary: 文章列表
+      tags:
+      - articles
+    post:
+      consumes:
+      - application/json
+      description: 创建新文章
+      parameters:
+      - description: 文章信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateArticleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.ArticleResponse'
+      security:
+      - BearerAuth: []
+      summary: 创建文章
+      tags:
+      - articles
+  /api/articles/{slug}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定文章
+      parameters:
+      - description: 文章slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/models.ArticleResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除文章
+      tags:
+      - articles
+    get:
+      consumes:
+      - application/json
+      description: 获取文章详情
+      parameters:
+      - description: 文章slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ArticleResponse'
+      summary: 获取文章
+      tags:
+      - articles
+    put:
+      consumes:
+      - application/json
+      description: 更新文章信息
+      parameters:
+      - description: 文章slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: 文章信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateArticleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ArticleResponse'
+      security:
+      - BearerAuth: []
+      summary: 更新文章
+      tags:
+      - articles
+  /api/articles/feed:
+    get:
+      consumes:
+      - application/json
+      description: 获取关注文章列表
+      parameters:
+      - description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ArticleListResponse'
+      security:
+      - BearerAuth: []
+      summary: 关注文章列表
+      tags:
+      - articles
+  /api/profiles/{username}:
+    get:
+      consumes:
+      - application/json
+      description: 根据用户名获取用户资料
+      parameters:
+      - description: 用户名
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回用户资料
+          schema:
+            $ref: '#/definitions/models.Profile'
+        "401":
+          description: 未授权，缺少或无效的 token
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取用户资料
+      tags:
+      - profiles
+  /api/profiles/{username}/follow:
+    delete:
+      consumes:
+      - application/json
+      description: 取消关注指定的用户
+      parameters:
+      - description: 用户名
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 取消关注成功，返回用户资料
+          schema:
+            $ref: '#/definitions/models.Profile'
+        "401":
+          description: 未授权，缺少或无效的 token
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取消关注用户
+      tags:
+      - profiles
+    post:
+      consumes:
+      - application/json
+      description: 关注指定的用户
+      parameters:
+      - description: 用户名
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 关注成功，返回用户资料
+          schema:
+            $ref: '#/definitions/models.Profile'
+        "401":
+          description: 未授权，缺少或无效的 token
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 用户不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 关注用户
+      tags:
+      - profiles
+  /api/user:
+    get:
+      consumes:
+      - application/json
+      description: 根据token获取当前用户信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 获取成功，返回当前用户信息
+          schema:
+            $ref: '#/definitions/models.UserModel'
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户信息
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: 根据token更新当前用户信息
+      parameters:
+      - description: 用户更新信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserModel'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功，返回更新后的用户信息
+          schema:
+            $ref: '#/definitions/models.UserModel'
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新用户信息
+      tags:
+      - users
+  /api/users/login:
+    post:
+      consumes:
+      - application/json
+      description: 接收用户登录信息，验证用户信息并返回token
+      parameters:
+      - description: 用户登录信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserModel'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功，返回token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 用户名或密码错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 用户登录
+      tags:
+      - users
+  /api/users/register:
+    post:
+      consumes:
+      - application/json
+      description: 接收用户信息，将用户信息存储到数据库中完成注册
+      parameters:
+      - description: 用户注册信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserModel'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 注册成功，返回创建的用户信息
+          schema:
+            $ref: '#/definitions/models.UserModel'
+        "400":
+          description: 请求参数错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器内部错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 注册用户
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

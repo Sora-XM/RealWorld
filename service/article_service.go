@@ -119,6 +119,56 @@ func (s *ArticleService) CreateArticle(userID uint, req models.CreateArticleRequ
 	return &article, nil
 }
 
+// UpdateArticle 更新文章
+func (s *ArticleService) UpdateArticle(userID uint, slug string, req models.UpdateArticleRequest) (*models.Article, error) {
+	var article models.Article
+	//校验权限
+	err := s.DB.Where("slug = ? AND author_id=?", slug, userID).First(&article).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("文章未找到或无权更新")
+		}
+		return nil, err
+	}
+	//更新文章字段
+	if req.Article.Title != nil {
+		article.Title = *req.Article.Title
+		article.Slug = GenerateSlug(*req.Article.Title)
+	}
+	if req.Article.Description != nil {
+		article.Description = *req.Article.Description
+	}
+	if req.Article.Body != nil {
+		article.Body = *req.Article.Body
+	}
+	err = s.DB.Save(&article).Error
+	if err != nil {
+		return nil, err
+	}
+	err = s.DB.Preload("Author").First(&article, "id=?", article.ID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &article, nil
+}
+
+// DeleteArticle 删除文章
+func (s *ArticleService) DeleteArticle(userID uint, slug string) error {
+	var article models.Article
+	err := s.DB.Where("slug = ? AND author_id=?", slug, userID).First(&article).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("文章未找到或无权删除")
+		}
+		return err
+	}
+	err = s.DB.Delete(&article).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // GenerateSlug 根据标题生成文章的slug
 // 标题："Hello, World!"
 // Slug："hello-world"

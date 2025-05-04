@@ -52,6 +52,8 @@ func main() {
 	route.FeedArticlesRoutes(router, articleService, auth)
 	route.GetArticleRoutes(router, articleService, auth)
 	route.CreateArticleRoutes(router, articleService, auth)
+	route.UpdateArticleRoutes(router, articleService, auth)
+	route.DeleteArticleRoutes(router, articleService, auth)
 
 	if err := router.Run(":8080"); err != nil {
 		log.Fatalf("服务器启动失败：%v", err)

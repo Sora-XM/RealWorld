@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"goDemo/models"
 	"goDemo/service"
 	"goDemo/utils"
+	"gorm.io/gorm"
 	"net/http"
 )
 
@@ -138,6 +140,77 @@ func (c *ArticleController) CreateArticle(ctx *gin.Context) {
 
 	//返回创建成功的文章信息
 	ctx.JSON(http.StatusOK, models.ArticleResponse{Article: *article})
+}
+
+// UpdateArticle 更新文章
+// @Summary 更新文章
+// @Description 更新文章信息
+// @Tags articles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param slug path string true "文章slug"
+// @Param article body models.UpdateArticleRequest true "文章信息"
+// @Success 200 {object} models.ArticleResponse
+// @Router /api/articles/{slug} [put]
+func (c *ArticleController) UpdateArticle(ctx *gin.Context) {
+	//校验token
+	userID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权访问"}}})
+		return
+	}
+	//解析请求内容并调用服务层更新文章
+	slug := ctx.Param("slug")
+	var request models.UpdateArticleRequest
+	if err := ctx.ShouldBind(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		return
+	}
+	article, err := c.ArticleService.UpdateArticle(userID, slug, request)
+	//处理错误
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"errors": gin.H{"body": []string{"文章没找到或无权查看"}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		}
+		return
+	}
+	//返回更新成功的文章信息
+	ctx.JSON(http.StatusOK, models.ArticleResponse{Article: *article})
+}
+
+// DeleteArticle 删除文章
+// @Summary 删除文章
+// @Description 删除指定文章
+// @Tags articles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param slug path string true "文章slug"
+// @Success 204 {object} models.ArticleResponse
+// @Router /api/articles/{slug} [delete]
+func (c *ArticleController) DeleteArticle(ctx *gin.Context) {
+	//校验token
+	userID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权访问"}}})
+		return
+	}
+	//调用服务层删除文章
+	slug := ctx.Param("slug")
+	err = c.ArticleService.DeleteArticle(userID, slug)
+	//处理错误
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"errors": gin.H{"body": []string{"文章未找到或无权限删除"}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		}
+		return
+	}
+	ctx.Status(http.StatusNoContent)
 }
 
 // 获取查询参数并设置默认值

@@ -105,3 +105,21 @@ func CreateArticleRoutes(router *gin.Engine, ArticleService *service.ArticleServ
 		api.POST("/articles", articleController.CreateArticle)
 	}
 }
+
+// UpdateArticleRoutes 更新文章
+func UpdateArticleRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	articleController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.PUT("/articles/:slug", articleController.UpdateArticle)
+	}
+}
+
+// DeleteArticleRoutes 删除文章
+func DeleteArticleRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	articleController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.DELETE("/articles/:slug", articleController.DeleteArticle)
+	}
+}
