@@ -69,3 +69,39 @@ func UnfollowUserRoutes(router *gin.Engine, ProfileService *service.ProfileServi
 		api.DELETE("/profiles/:username/follow", profileController.UnfollowUser)
 	}
 }
+
+// ListArticlesRoutes 文章列表
+func ListArticlesRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	articleController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.GET("/articles", articleController.ListArticles)
+	}
+}
+
+// FeedArticlesRoutes 关注文章列表
+func FeedArticlesRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	articleController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.GET("/articles/feed", articleController.FeedArticles)
+	}
+}
+
+// GetArticleRoutes 获取文章
+func GetArticleRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	articleController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.GET("/articles/:slug", articleController.GetArticle)
+	}
+}
+
+// CreateArticleRoutes 创建文章
+func CreateArticleRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	articleController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.POST("/articles", articleController.CreateArticle)
+	}
+}

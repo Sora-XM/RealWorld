@@ -5,7 +5,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"goDemo/config"
-	_ "goDemo/docs" // 导入生成的文档包，根据实际包名调整
+	_ "goDemo/docs" // 导入生成的文档包
 	"goDemo/route"
 	"goDemo/service"
 	"goDemo/utils"
@@ -26,12 +26,14 @@ func main() {
 		log.Fatalf("数据库连接失败：%v", err)
 	}
 	auth := utils.NewAuth("DurRDDtjL2uB_Zyry4f6GHwoBgD5k7oLvC7Fj12E56E=")
-	// 创建UserService实例，传入数据库连接
 	userService := &service.UserService{
 		DB:   db,
 		Auth: auth,
 	}
 	profileService := &service.ProfileService{
+		DB: db,
+	}
+	articleService := &service.ArticleService{
 		DB: db,
 	}
 	router := gin.Default()
@@ -46,6 +48,10 @@ func main() {
 	route.GetProfileRoutes(router, profileService, userService, auth)
 	route.FollowUserRoutes(router, profileService, userService, auth)
 	route.UnfollowUserRoutes(router, profileService, userService, auth)
+	route.ListArticlesRoutes(router, articleService, auth)
+	route.FeedArticlesRoutes(router, articleService, auth)
+	route.GetArticleRoutes(router, articleService, auth)
+	route.CreateArticleRoutes(router, articleService, auth)
 
 	if err := router.Run(":8080"); err != nil {
 		log.Fatalf("服务器启动失败：%v", err)
