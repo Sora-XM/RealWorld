@@ -2,9 +2,9 @@ package service
 
 import (
 	"errors"
+	"github.com/gosimple/slug"
 	"goDemo/models"
 	"gorm.io/gorm"
-	"strings"
 	"time"
 )
 
@@ -27,7 +27,6 @@ type FeedArticlesParams struct {
 
 func (s *ArticleService) ListArticles(userID uint, params ListArticlesParams) ([]models.Article, int64, error) {
 	query := s.DB.Model(&models.Article{}).Preload("Author").Order("created_at DESC")
-
 	if params.Tag != "" {
 		query = query.Where("tag_list @> ?", []string{params.Tag})
 	}
@@ -72,13 +71,13 @@ func (s *ArticleService) FeedArticles(userID uint, params FeedArticlesParams) ([
 	var articles []models.Article
 	var count int64
 
-	//先获取用户关注的作者ID
 	subQuery := s.DB.Table("follows").
 		Select("followed").
 		Where("follower = ?", userID)
 
-	//查询这些ID的文章
+	// 查询这些ID的文章，并预加载作者信息
 	query := s.DB.Model(&models.Article{}).
+		Preload("Author").
 		Where("author_id IN (?)", subQuery).
 		Where("deleted_at IS NULL")
 
@@ -97,7 +96,7 @@ func (s *ArticleService) FeedArticles(userID uint, params FeedArticlesParams) ([
 
 func (s *ArticleService) GetArticle(slug string) (*models.Article, error) {
 	var article models.Article
-	err := s.DB.Where("slug = ?", slug).First(&article).Error
+	err := s.DB.Preload("Author").Where("slug = ?", slug).First(&article).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -389,16 +388,19 @@ func (s *ArticleService) IsFollowing(followerID, followedID uint) (bool, error) 
 // 标题："Hello, World!"
 // Slug："hello-world"
 func GenerateSlug(title string) string {
-	slug := strings.ToLower(title)
-	for _, char := range slug {
-		if !((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
-			slug = strings.ReplaceAll(slug, string(char), "-")
-		}
-	}
-	//移除多余和首尾连字符
-	for strings.Contains(slug, "--") {
-		slug = strings.ReplaceAll(slug, "--", "-")
-	}
-	slug = strings.Trim(slug, "-")
-	return slug
+	//slug := strings.ToLower(title)
+	//for _, char := range slug {
+	//	if !((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
+	//		slug = strings.ReplaceAll(slug, string(char), "-")
+	//	}
+	//}
+	////移除多余和首尾连字符
+	//for strings.Contains(slug, "--") {
+	//	slug = strings.ReplaceAll(slug, "--", "-")
+	//}
+	//slug = strings.Trim(slug, "-")
+	//return slug
+
+	// 使用 slug 库生成支持中文的 slug
+	return slug.Make(title)
 }

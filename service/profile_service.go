@@ -20,7 +20,7 @@ func (s *ProfileService) GetProfile(currentUserID uint, username string) (*model
 
 	//查看该用户是否被当前用户关注
 	var following bool
-	if currentUserID == 0 {
+	if currentUserID != 0 {
 		var follow models.Follow
 		err = s.DB.Where("follower = ? AND followed = ?", currentUserID, user.ID).First(&follow).Error
 		following = err == nil

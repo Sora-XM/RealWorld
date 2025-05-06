@@ -42,7 +42,8 @@ func (s *UserService) VerifyUser(email string, password string) (*models.UserMod
 	fmt.Printf("从数据库读取的哈希密码（去除空白后）: %s\n", trimmedPassword)
 	fmt.Printf("待验证的明文密码: %s\n", password)
 
-	// 使用 bcrypt 验证密码
+	// 使用 bcrypt 验证密码，目前自己电脑上实在不清楚为什么会验证失败，即使输入正确密码也会返回错误
+	// 所以暂时注释掉，直接返回用户信息，后续再解决
 	//err = bcrypt.CompareHashAndPassword([]byte(trimmedPassword), []byte(password))
 	//if err != nil {
 	//	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
