@@ -123,3 +123,21 @@ func DeleteArticleRoutes(router *gin.Engine, ArticleService *service.ArticleServ
 		api.DELETE("/articles/:slug", articleController.DeleteArticle)
 	}
 }
+
+// AddCommentRoutes 添加文章评论
+func AddCommentRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	commentController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.POST("/articles/:slug/comments", commentController.AddComment)
+	}
+}
+
+// GetCommentsRoutes 获取文章评论
+func GetCommentsRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	commentController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.GET("/articles/:slug/comments", commentController.GetComments)
+	}
+}

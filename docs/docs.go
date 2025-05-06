@@ -265,6 +265,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/articles/{slug}/comments": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取指定文章的评论列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "articles"
+                ],
+                "summary": "获取文章的评论列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文章slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.CommentsResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "向文章添加评论",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "articles"
+                ],
+                "summary": "添加评论",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文章slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "评论信息",
+                        "name": "comment",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateCommentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.CommentResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/profiles/{username}": {
             "get": {
                 "security": [
@@ -743,6 +824,87 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CommentResponse": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "object",
+                    "properties": {
+                        "author": {
+                            "type": "object",
+                            "properties": {
+                                "bio": {
+                                    "type": "string"
+                                },
+                                "following": {
+                                    "type": "boolean"
+                                },
+                                "image": {
+                                    "type": "string"
+                                },
+                                "username": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "body": {
+                            "type": "string"
+                        },
+                        "createdAt": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "integer"
+                        },
+                        "updatedAt": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "models.CommentsResponse": {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "author": {
+                                "type": "object",
+                                "properties": {
+                                    "bio": {
+                                        "type": "string"
+                                    },
+                                    "following": {
+                                        "type": "boolean"
+                                    },
+                                    "image": {
+                                        "type": "string"
+                                    },
+                                    "username": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "body": {
+                                "type": "string"
+                            },
+                            "createdAt": {
+                                "type": "string"
+                            },
+                            "id": {
+                                "type": "integer"
+                            },
+                            "updatedAt": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "models.CreateArticleRequest": {
             "type": "object",
             "required": [
@@ -770,6 +932,25 @@ const docTemplate = `{
                             }
                         },
                         "title": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "models.CreateCommentRequest": {
+            "type": "object",
+            "required": [
+                "comment"
+            ],
+            "properties": {
+                "comment": {
+                    "type": "object",
+                    "required": [
+                        "body"
+                    ],
+                    "properties": {
+                        "body": {
                             "type": "string"
                         }
                     }

@@ -9,6 +9,7 @@ import (
 	"goDemo/utils"
 	"gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 type ArticleController struct {
@@ -211,6 +212,125 @@ func (c *ArticleController) DeleteArticle(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+// AddComment 向文章添加评论
+// @Summary 添加评论
+// @Description 向文章添加评论
+// @Tags articles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param slug path string true "文章slug"
+// @Param comment body models.CreateCommentRequest true "评论信息"
+// @Success 201 {object} models.CommentResponse
+// @Router /api/articles/{slug}/comments [post]
+func (c *ArticleController) AddComment(ctx *gin.Context) {
+	//校验token
+	userID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权访问"}}})
+		return
+	}
+	slug := ctx.Param("slug")
+	var request models.CreateCommentRequest
+	if err := ctx.ShouldBind(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+	}
+	//创建评论并返回信息
+	comment, err := c.ArticleService.CreateComment(userID, slug, request)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"errors": gin.H{"body": []string{"文章未找到"}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		}
+		return
+	}
+	//是否已关注该评论作者
+	isFollowing, err := c.ArticleService.IsFollowing(userID, comment.AuthorID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		return
+	}
+	//构造响应
+	response := models.CommentResponse{
+		Comment: struct {
+			ID        uint      `json:"id"`
+			CreatedAt time.Time `json:"createdAt"`
+			UpdatedAt time.Time `json:"updatedAt"`
+			Body      string    `json:"body"`
+			Author    struct {
+				Username  string `json:"username"`
+				Bio       string `json:"bio"`
+				Image     string `json:"image"`
+				Following bool   `json:"following"`
+			} `json:"author"`
+		}{
+			ID:        comment.ID,
+			CreatedAt: comment.CreatedAt,
+			UpdatedAt: comment.UpdatedAt,
+			Body:      comment.Body,
+			Author: struct {
+				Username  string `json:"username"`
+				Bio       string `json:"bio"`
+				Image     string `json:"image"`
+				Following bool   `json:"following"`
+			}{
+				Username:  comment.Author.Username,
+				Bio:       comment.Author.Bio,
+				Image:     comment.Author.Image,
+				Following: isFollowing,
+			},
+		},
+	}
+	ctx.JSON(http.StatusOK, response)
+}
+
+// GetComments 获取文章的评论列表
+// @Summary 获取文章的评论列表
+// @Description 获取指定文章的评论列表
+// @Tags articles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param slug path string true "文章slug"
+// @Success 200 {object} models.CommentsResponse
+// @Router /api/articles/{slug}/comments [get]
+func (c *ArticleController) GetComments(ctx *gin.Context) {
+	// 校验token
+	userID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权访问"}}})
+		return
+	}
+	slug := ctx.Param("slug")
+	commentResponses, err := c.ArticleService.GetCommentsBySlug(slug, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		return
+	}
+	// 构造响应
+	var commentsResponse models.CommentsResponse
+	for _, commentResponse := range commentResponses {
+		commentsResponse.Comments = append(commentsResponse.Comments, commentResponse.Comment)
+	}
+	ctx.JSON(http.StatusOK, commentsResponse)
+}
+
+// DeleteComment 删除文章评论
+// @Summary 删除文章评论
+// @Description 删除指定文章的评论
+// @Tags articles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param slug path string true "文章slug"
+// @Param id path int true "评论ID"
+// @Success 204 {object} models.CommentResponse
+// @Router /api/articles/{slug}/comments/{id} [delete]
+func (c *ArticleController) DeleteComment(ctx *gin.Context) {
+
 }
 
 // 获取查询参数并设置默认值

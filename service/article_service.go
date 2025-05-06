@@ -5,6 +5,7 @@ import (
 	"goDemo/models"
 	"gorm.io/gorm"
 	"strings"
+	"time"
 )
 
 type ArticleService struct {
@@ -167,6 +168,102 @@ func (s *ArticleService) DeleteArticle(userID uint, slug string) error {
 		return err
 	}
 	return nil
+}
+
+// CreateComment 创建评论
+func (s *ArticleService) CreateComment(userID uint, slug string, req models.CreateCommentRequest) (*models.Comment, error) {
+	var article models.Article
+	err := s.DB.Where("slug =?", slug).First(&article).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("文章未找到")
+		}
+		return nil, err
+	}
+
+	comment := models.Comment{
+		Body:      req.Comment.Body,
+		AuthorID:  userID,
+		ArticleID: article.ID,
+	}
+
+	err = s.DB.Create(&comment).Error
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.DB.Preload("Author").First(&comment, "id=?", comment.ID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &comment, nil
+}
+
+// GetCommentsBySlug 获取文章的评论列表
+func (s *ArticleService) GetCommentsBySlug(slug string, userID uint) ([]models.CommentResponse, error) {
+	var article models.Article
+	err := s.DB.Where("slug =?", slug).First(&article).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("文章没找到哦")
+		}
+		return nil, err
+	}
+	var comments []models.Comment
+	err = s.DB.Preload("Author").Where("article_id = ?", article.ID).Find(&comments).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var commentResponses []models.CommentResponse
+	for _, comment := range comments {
+		isFollowing, err := s.IsFollowing(userID, comment.AuthorID)
+		if err != nil {
+			return nil, err
+		}
+		commentResponse := models.CommentResponse{
+			Comment: struct {
+				ID        uint      `json:"id"`
+				CreatedAt time.Time `json:"createdAt"`
+				UpdatedAt time.Time `json:"updatedAt"`
+				Body      string    `json:"body"`
+				Author    struct {
+					Username  string `json:"username"`
+					Bio       string `json:"bio"`
+					Image     string `json:"image"`
+					Following bool   `json:"following"`
+				} `json:"author"`
+			}{
+				ID:        comment.ID,
+				CreatedAt: comment.CreatedAt,
+				UpdatedAt: comment.UpdatedAt,
+				Body:      comment.Body,
+				Author: struct {
+					Username  string `json:"username"`
+					Bio       string `json:"bio"`
+					Image     string `json:"image"`
+					Following bool   `json:"following"`
+				}{
+					Username:  comment.Author.Username,
+					Bio:       comment.Author.Bio,
+					Image:     comment.Author.Image,
+					Following: isFollowing,
+				},
+			},
+		}
+		commentResponses = append(commentResponses, commentResponse)
+	}
+	return commentResponses, nil
+}
+func (s *ArticleService) IsFollowing(followerID, followedID uint) (bool, error) {
+	var count int64
+	err := s.DB.Model(&models.Follow{}).
+		Where("follower =? AND followed =?", followerID, followedID).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // GenerateSlug 根据标题生成文章的slug
