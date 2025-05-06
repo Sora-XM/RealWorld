@@ -25,7 +25,7 @@ type FeedArticlesParams struct {
 	Offset int
 }
 
-func (s *ArticleService) ListArticles(params ListArticlesParams) ([]models.Article, int64, error) {
+func (s *ArticleService) ListArticles(userID uint, params ListArticlesParams) ([]models.Article, int64, error) {
 	query := s.DB.Model(&models.Article{}).Preload("Author").Order("created_at DESC")
 
 	if params.Tag != "" {
@@ -35,8 +35,18 @@ func (s *ArticleService) ListArticles(params ListArticlesParams) ([]models.Artic
 		query = query.Joins("JOIN authors ON articles.author_id = authors.id").Where("authors.username = ?", params.Author)
 	}
 	if params.Favorited != "" {
-		// 暂时简化处理
-		query = query.Where("favorited = true")
+		if userID == 0 {
+			return nil, 0, errors.New("未登录用户不能查询收藏文章")
+		}
+		isFavorited := params.Favorited == "true"
+		if isFavorited {
+			// 查询被指定用户收藏的文章
+			query = query.Joins("JOIN favorites ON articles.id = favorites.article_id").
+				Where("favorites.user_id = ?", userID)
+		} else {
+			// 查询未被指定用户收藏的文章
+			query = query.Where("NOT EXISTS (SELECT 1 FROM favorites WHERE favorites.article_id = articles.id AND favorites.user_id = ?)", userID)
+		}
 	}
 
 	var total int64
@@ -255,6 +265,115 @@ func (s *ArticleService) GetCommentsBySlug(slug string, userID uint) ([]models.C
 	}
 	return commentResponses, nil
 }
+
+// DeleteComment 删除评论
+func (s *ArticleService) DeleteComment(userID uint, slug string, commentID uint) error {
+	//定位文章评论
+	var article models.Article
+	err := s.DB.Where("slug =?", slug).First(&article).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("文章没找到哦")
+		}
+		return err
+	}
+	var Comment models.Comment
+	err = s.DB.Where("id =? AND article_id =?", commentID, article.ID).First(&Comment).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("评论没找到或无权删除")
+		}
+		return err
+	}
+	err = s.DB.Delete(&Comment).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// FavoriteArticle 添加文章收藏
+func (s *ArticleService) FavoriteArticle(userID uint, slug string) (*models.Article, error) {
+	var article models.Article
+	err := s.DB.Where("slug =?", slug).First(&article).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("文章没找到哦")
+		}
+		return nil, err
+	}
+	var favorite models.Favorite
+	err = s.DB.Where("user_id =? AND article_id =?", userID, article.ID).First(&favorite).Error
+	if err == nil {
+		// 已收藏，预加载作者信息并返回文章
+		err = s.DB.Preload("Author").Where("id = ?", article.ID).First(&article).Error
+		if err != nil {
+			return nil, err
+		}
+		return &article, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	favorite = models.Favorite{
+		UserID:    userID,
+		ArticleID: article.ID,
+	}
+	err = s.DB.Create(&favorite).Error
+	if err != nil {
+		return nil, err
+	}
+	// 更新文章的收藏数
+	err = s.DB.Model(&article).Update("favorites_count", gorm.Expr("favorites_count + ?", 1)).Error
+	if err != nil {
+		return nil, err
+	}
+	// 预加载作者信息并返回文章
+	err = s.DB.Preload("Author").Where("id = ?", article.ID).First(&article).Error
+	if err != nil {
+		return nil, err
+	}
+	return &article, nil
+}
+
+// UnfavoriteArticle 取消文章收藏
+func (s *ArticleService) UnfavoriteArticle(userID uint, slug string) (*models.Article, error) {
+	var article models.Article
+	err := s.DB.Where("slug =?", slug).First(&article).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("文章没找到哦")
+		}
+		return &article, err
+	}
+	var favorite models.Favorite
+	err = s.DB.Where("user_id=? AND article_id =?", userID, article.ID).First(&favorite).Error
+	// 未收藏，直接返回
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = s.DB.Preload("Author").Where("id = ?", article.ID).First(&article).Error
+		if err != nil {
+			return nil, err
+		}
+		return &article, nil
+	} else if err != nil {
+		return nil, err
+	}
+	// 取消收藏并修改收藏数
+	err = s.DB.Delete(&favorite).Error
+	if err != nil {
+		return nil, err
+	}
+	err = s.DB.Model(&article).Update("favorites_count",
+		gorm.Expr("CASE WHEN  favorites_count>0 THEN favorites_count -1 ELSE 0 END")).Error
+	if err != nil {
+		return nil, err
+	}
+	err = s.DB.Preload("Author").Where("id = ?", article.ID).First(&article).Error
+	if err != nil {
+		return nil, err
+	}
+	return &article, nil
+}
+
 func (s *ArticleService) IsFollowing(followerID, followedID uint) (bool, error) {
 	var count int64
 	err := s.DB.Model(&models.Follow{}).

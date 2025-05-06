@@ -141,3 +141,30 @@ func GetCommentsRoutes(router *gin.Engine, ArticleService *service.ArticleServic
 		api.GET("/articles/:slug/comments", commentController.GetComments)
 	}
 }
+
+// DeleteCommentRoutes 删除文章评论
+func DeleteCommentRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	commentController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.DELETE("/articles/:slug/comments/:id", commentController.DeleteComment)
+	}
+}
+
+// FavoriteArticleRoutes 收藏文章
+func FavoriteArticleRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	favoriteController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.POST("/articles/:slug/favorite", favoriteController.FavoriteArticle)
+	}
+}
+
+// UnfavoriteArticleRoutes 取消收藏文章
+func UnfavoriteArticleRoutes(router *gin.Engine, ArticleService *service.ArticleService, Auth *utils.Auth) {
+	favoriteController := &controller.ArticleController{ArticleService: ArticleService, Auth: Auth}
+	api := router.Group("/api")
+	{
+		api.DELETE("/articles/:slug/favorite", favoriteController.UnfavoriteArticle)
+	}
+}

@@ -375,6 +375,79 @@ paths:
       summary: 添加评论
       tags:
       - articles
+  /api/articles/{slug}/comments/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定文章的评论
+      parameters:
+      - description: 文章slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: 评论ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/models.CommentResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除文章评论
+      tags:
+      - articles
+  /api/articles/{slug}/favorite:
+    delete:
+      consumes:
+      - application/json
+      description: 取消收藏指定文章
+      parameters:
+      - description: 文章slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ArticleResponse'
+      security:
+      - BearerAuth: []
+      summary: 取消收藏文章
+      tags:
+      - articles
+    post:
+      consumes:
+      - application/json
+      description: 收藏指定文章
+      parameters:
+      - description: 文章slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ArticleResponse'
+      security:
+      - BearerAuth: []
+      summary: 收藏文章
+      tags:
+      - articles
   /api/articles/feed:
     get:
       consumes:

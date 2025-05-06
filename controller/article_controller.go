@@ -9,6 +9,7 @@ import (
 	"goDemo/utils"
 	"gorm.io/gorm"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -39,7 +40,13 @@ func (c *ArticleController) ListArticles(ctx *gin.Context) {
 		Limit:     getIntQuery(ctx, "limit", 20),
 		Offset:    getIntQuery(ctx, "offset", 0),
 	}
-	articles, count, err := c.ArticleService.ListArticles(param)
+	// 从认证信息中获取用户 ID
+	userID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		// 处理未认证情况
+		userID = 0
+	}
+	articles, count, err := c.ArticleService.ListArticles(userID, param)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
 		return
@@ -330,7 +337,90 @@ func (c *ArticleController) GetComments(ctx *gin.Context) {
 // @Success 204 {object} models.CommentResponse
 // @Router /api/articles/{slug}/comments/{id} [delete]
 func (c *ArticleController) DeleteComment(ctx *gin.Context) {
+	// 校验token
+	userID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权访问"}}})
+		return
+	}
+	slug := ctx.Param("slug")
+	commentIDStr := ctx.Param("id")
+	var commentID uint
+	_, err = fmt.Sscanf(commentIDStr, "%d", &commentID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"errors": gin.H{"body": []string{"无效的评论 ID"}}})
+		return
+	}
+	err = c.ArticleService.DeleteComment(userID, slug, commentID)
+	if err != nil {
+		if strings.Contains(err.Error(), "评论未找到") {
+			ctx.JSON(http.StatusNotFound, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		}
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
 
+// FavoriteArticle 收藏文章
+// @Summary 收藏文章
+// @Description 收藏指定文章
+// @Tags articles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param slug path string true "文章slug"
+// @Success 200 {object} models.ArticleResponse
+// @Router /api/articles/{slug}/favorite [post]
+func (c *ArticleController) FavoriteArticle(ctx *gin.Context) {
+	// 校验token
+	userID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权访问"}}})
+		return
+	}
+	slug := ctx.Param("slug")
+	article, err := c.ArticleService.FavoriteArticle(userID, slug)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"errors": gin.H{"body": []string{"文章未找到"}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		}
+		return
+	}
+	ctx.JSON(http.StatusOK, models.ArticleResponse{Article: *article})
+}
+
+// UnfavoriteArticle 取消收藏文章
+// @Summary 取消收藏文章
+// @Description 取消收藏指定文章
+// @Tags articles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param slug path string true "文章slug"
+// @Success 200 {object} models.ArticleResponse
+// @Router /api/articles/{slug}/favorite [delete]
+func (c *ArticleController) UnfavoriteArticle(ctx *gin.Context) {
+	// 校验token
+	userID, err := c.Auth.ParseToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"errors": gin.H{"body": []string{"未授权访问"}}})
+		return
+	}
+	slug := ctx.Param("slug")
+	article, err := c.ArticleService.UnfavoriteArticle(userID, slug)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"errors": gin.H{"body": []string{"文章未找到"}}})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"errors": gin.H{"body": []string{err.Error()}}})
+		}
+		return
+	}
+	ctx.JSON(http.StatusOK, models.ArticleResponse{Article: *article})
 }
 
 // 获取查询参数并设置默认值
